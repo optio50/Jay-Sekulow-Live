@@ -10,4 +10,4 @@ It also uses curl and mpv player
 
 https://aclj.org/tune-in-to-our-live-radio-shows
 
-![](Sekulow.png)
+![](Sekulow.gif)
