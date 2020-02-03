@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script uses the builtin "mapfile" and is only available in bash versions 4 and higher
+# This script uses the bash builtin "mapfile" and is only available in bash versions 4 and higher
 # It also uses curl and mpv player
 ###############################################################
 # Setup Text Colors
@@ -38,45 +38,58 @@ reset=$(tput sgr0)      #  Reset text attributes to normal
 ###############################################################
 tput clear
 
-# Get the latest mp3 urls from aclj
-urls=$(curl -s https://aclj.org/tune-in-to-our-live-radio-shows | grep -Pio '(?<=<\/a><\/h2><a href=").*?(?=" download style=)')
+# Get the html source from aclj.org and store in file
+curl -s https://aclj.org/tune-in-to-our-live-radio-shows > source
 
-# Create an array from the urls to be used by the mpv player
+# Create the urls from the source file and store in the variable urls
+urls=$(grep -Pio '(?<=<\/a><\/h2><a href=").*?(?=" download style=)' source)
+
+# The first episode title is funky and requires different handling. Store in file
+grep -Pio '(?<=Listen</span><span class="radioTitle">).*?(?=</span><div class=)' source > titles
+
+# Get the rest of the episode titles. Append to previous title file
+grep -Pio '(?<=class="loadRadioPlayer">).*?(?=</a></h2><a href=)' source | grep -v 1 >> titles
+
+# Strip HTML entities from titles and replace with correct character
+sed -i 's/&nbsp;/ /g; s/&amp;/\&/g; s/&lt;/\</g; s/&gt;/\>/g; s/&quot;/\"/g; s/#&#39;/\'"'"'/g; s/&ldquo;/\"/g; s/&rdquo;/\"/g; s/&rsquo;/\’/g;  s/&mdash;/\-/g; s/&#160;/\-/g;' titles 
+
+# Create an array for the audio urls
 mapfile -t < <(printf "%b\n" "${urls}") linesurl
 
-#  Print the urls and pipe it to basename to get the date thats in the filename
-dates=$(printf "%s\n" "${linesurl[@]}" | xargs -n1 basename -s .mp3 | sed 's/^....//')
+# Print the urls and pipe it to basename to get the date thats in the filename and create array for the epsiode dates
+mapfile -t < <(printf "%s\n" "${linesurl[@]}" | xargs -n1 basename -s .mp3 | sed 's/^....//') linesdates
 
-# Create an array from the dates to use for the menu
-mapfile -t < <(printf "%b\n" "${dates}") linesdates
+# Create an array for the episode titles
+mapfile -t < <(cat titles) linestitles
 
-printf "%b\n" "${purple}\n"
-printf "%b\n" "https://aclj.org/tune-in-to-our-live-radio-shows\n"
+rm source
+rm titles
+printf "%b" "${purple}\n"
+printf "%b\n" " https://aclj.org/tune-in-to-our-live-radio-shows\n"
 
-printf "%b\n" "${red}"
-printf "%b\n" "ACLJ Radio Show: Jay Sekulow Live\n"
+printf "%b" "${red}"
+printf "%b\n" " ACLJ Radio Show: Jay Sekulow Live\n"
 # Display the Menu
-printf "%b\n" "${green}"
-printf "%b\n" "Select Your Date"
+printf "%b" "${green}"
+printf "%b\n" " Make Your Selection"
 
-printf "%b\n" "${orange}"
 printf "%b\n"
-printf "%b\n" " 0. Jay Sekulow Live "${linesdates[0]}"\n" 
-printf "%b\n" " 1. Jay Sekulow Live "${linesdates[1]}"\n"
-printf "%b\n" " 2. Jay Sekulow Live "${linesdates[2]}"\n"
-printf "%b\n" " 3. Jay Sekulow Live "${linesdates[3]}"\n"
-printf "%b\n" " 4. Jay Sekulow Live "${linesdates[4]}"\n"
-printf "%b\n" " 5. Jay Sekulow Live "${linesdates[5]}"\n"
-printf "%b\n" " 6. Jay Sekulow Live "${linesdates[6]}"\n"
-printf "%b\n" " 7. Jay Sekulow Live "${linesdates[7]}"\n"
-printf "%b\n" " 8. Jay Sekulow Live "${linesdates[8]}"\n"
-printf "%b\n" " 9. Jay Sekulow Live "${linesdates[9]}"\n"
+printf "%b" "${orange}" " 0. ""${linestitles[0]}" "${cyan}" " ${linesdates[0]}" "\n\n"
+printf "%b" "${orange}" " 1. ""${linestitles[1]}" "${cyan}" " ${linesdates[1]}" "\n\n"
+printf "%b" "${orange}" " 2. ""${linestitles[2]}" "${cyan}" " ${linesdates[2]}" "\n\n"
+printf "%b" "${orange}" " 3. ""${linestitles[3]}" "${cyan}" " ${linesdates[3]}" "\n\n"
+printf "%b" "${orange}" " 4. ""${linestitles[4]}" "${cyan}" " ${linesdates[4]}" "\n\n"
+printf "%b" "${orange}" " 5. ""${linestitles[5]}" "${cyan}" " ${linesdates[5]}" "\n\n"
+printf "%b" "${orange}" " 6. ""${linestitles[6]}" "${cyan}" " ${linesdates[6]}" "\n\n"
+printf "%b" "${orange}" " 7. ""${linestitles[7]}" "${cyan}" " ${linesdates[7]}" "\n\n"
+printf "%b" "${orange}" " 8. ""${linestitles[8]}" "${cyan}" " ${linesdates[8]}" "\n\n"
+printf "%b" "${orange}" " 9. ""${linestitles[9]}" "${cyan}" " ${linesdates[9]}" "\n\n"
 
 printf "%b" "${invis}"
 
 # Get the users selected date from the menu
 read -r -n 1 choice
-
+tput el1; tput ed
 #  Assign the mp3 variable from the users choice
 case ${choice} in
 
@@ -101,11 +114,11 @@ case ${choice} in
  9) mp3="${linesurl[9]}"
  ;;
 esac
+printf "%b" "${reset}"  "Playing    " "${pink}" "${linestitles["${choice}"]}\n"
 
-printf "%b\n" "${reset}"
-printf "%b\n" "${norm}"
-tput cuu 27 # move the cursor up 27 lines
-tput ed # clear the screen below the new cursor position
-
+printf "%b" "${red}" " MPV keyboard controls"
+printf "%b\n" "${blue}" " https://mpv.io/manual/master/#keyboard-control"
+printf "%b" "${reset}"
+printf "%b" "${norm}"
 # Play the mp3 variable with mpv player
-mpv "${mp3}"
+mpv --term-playing-msg='Jay Sekulow ACLJ.org' "${mp3}"
